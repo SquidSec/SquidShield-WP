@@ -58,6 +58,9 @@ class SquidSec_Shield_WAF {
 		if ( ( defined( 'WP_CLI' ) && WP_CLI ) || ( defined( 'DOING_CRON' ) && DOING_CRON ) ) {
 			return;
 		}
+		if ( PHP_SAPI === 'cli' || PHP_SAPI === 'phpdbg' ) {
+			return;
+		}
 
 		$ip = SquidSec_Shield_IP::client();
 
@@ -102,16 +105,30 @@ class SquidSec_Shield_WAF {
 			}
 		}
 
-		// 1. Bad User-Agent blocking (configurable, stops curl/ffuf/wpscan etc.)
-		if ( SquidSec_Shield_Options::get( 'bad_user_agents_enabled' ) ) {
-			$ua = isset( $_SERVER['HTTP_USER_AGENT'] ) ? strtolower( sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ) ) : '';
-			if ( $ua && self::is_bad_ua( $ua ) ) {
-				// Still allow if in global allowlist
-				$allow = SquidSec_Shield_Options::get( 'ip_allowlist', array() );
-				if ( ! ( is_array( $allow ) && SquidSec_Shield_IP::in_list( $ip, $allow ) ) ) {
-					self::block_response( 'bad_ua', 'Bad user agent', '', $ip );
-					return;
-				}
+		// Logged-in admins skip UA hostility checks (still subject to attack rules below).
+		$is_admin_user = function_exists( 'is_user_logged_in' ) && is_user_logged_in()
+			&& function_exists( 'current_user_can' ) && current_user_can( 'manage_options' );
+
+		$ua_raw = isset( $_SERVER['HTTP_USER_AGENT'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ) : '';
+
+		// SEO / social good bots: never block on UA alone.
+		$is_good_bot = SquidSec_Shield_Bot_UA::is_good_ua( $ua_raw );
+
+		// 1. Bad User-Agent blocking (tools/scanners). Good SEO UAs always win.
+		if ( ! $is_admin_user && ! $is_good_bot && SquidSec_Shield_Options::get( 'bad_user_agents_enabled' ) ) {
+			if ( SquidSec_Shield_Bot_UA::is_bad_ua( $ua_raw ) ) {
+				self::block_response( 'bad_ua', 'Bad user agent', '', $ip );
+				return;
+			}
+		}
+
+		// 1b. Stealth scraper UA quirks (empty, bare Mozilla/5.0, FF78 mass-crawl, Mozlila, etc.).
+		if ( ! $is_admin_user && ! $is_good_bot && SquidSec_Shield_Options::get( 'scraper_ua_enabled' ) ) {
+			if ( SquidSec_Shield_Bot_UA::is_scraper_ua( $ua_raw ) ) {
+				// Short temp block to stop full-site scrapers without permanent ban.
+				SquidSec_Shield_IP::block( $ip, 'Scraper user agent', 60, 'scraper_ua', '' );
+				self::block_response( 'scraper_ua', 'Scraper user agent', '', $ip );
+				return;
 			}
 		}
 
@@ -191,22 +208,11 @@ class SquidSec_Shield_WAF {
 	/**
 	 * Check against configurable bad user-agents.
 	 *
-	 * @param string $ua Lowercased UA.
+	 * @param string $ua User-Agent (any case).
 	 * @return bool
 	 */
 	protected static function is_bad_ua( $ua ) {
-		$list = SquidSec_Shield_Options::get( 'bad_user_agents', '' );
-		if ( ! is_string( $list ) || $list === '' ) {
-			return false;
-		}
-		$lines = preg_split( '/\r?\n/', $list );
-		foreach ( $lines as $entry ) {
-			$entry = trim( strtolower( $entry ) );
-			if ( $entry !== '' && false !== strpos( $ua, $entry ) ) {
-				return true;
-			}
-		}
-		return false;
+		return SquidSec_Shield_Bot_UA::is_bad_ua( $ua );
 	}
 
 	/**

@@ -462,6 +462,7 @@ class SquidSec_Shield_Admin {
 			'async_scans', 'custom_rules_enabled', 'daily_report',
 			// New hardening options
 			'bad_user_agents_enabled', 'probe_patterns_enabled', 'admin_ip_protection',
+			'scraper_ua_enabled',
 		);
 		$out = array();
 
@@ -494,7 +495,7 @@ class SquidSec_Shield_Admin {
 			}
 			if ( is_int( $default ) ) {
 				$out[ $key ] = (int) $val;
-			} elseif ( 'bad_user_agents' === $key ) {
+			} elseif ( in_array( $key, array( 'bad_user_agents', 'good_user_agents', 'scraper_user_agents' ), true ) ) {
 				// Multiline UA list — preserve newlines.
 				$out[ $key ] = sanitize_textarea_field( (string) $val );
 			} else {
@@ -938,6 +939,7 @@ class SquidSec_Shield_Admin {
 						'waf_block_lfi',
 						'rate_limit_enabled',
 						'bad_user_agents_enabled',
+						'scraper_ua_enabled',
 						'probe_patterns_enabled',
 						'admin_ip_protection',
 					)
@@ -1026,7 +1028,14 @@ class SquidSec_Shield_Admin {
 				self::toggle(
 					'bad_user_agents_enabled',
 					'Block obvious bad User-Agents',
-					'Immediately block requests that come with curl, ffuf, wpscan, sqlmap, nuclei, gobuster and similar tool UAs. The list below is editable.',
+					'Immediately block requests that come with curl, ffuf, wpscan, sqlmap, nuclei, gobuster and similar tool UAs. Major SEO/social bots are allowlisted separately and are never blocked here.',
+					$opts
+				);
+
+				self::toggle(
+					'scraper_ua_enabled',
+					'Block stealth scraper User-Agents',
+					'Block empty/bare Mozilla UAs, Mozlila typos, Firefox/78 Linux mass-crawlers, headless markers, and the custom list below. Matching IPs get a temporary block.',
 					$opts
 				);
 
@@ -1038,12 +1047,30 @@ class SquidSec_Shield_Admin {
 				);
 
 				self::field(
+					'good_user_agents',
+					'SEO / social allowlist (never blocked as bad/scraper UA)',
+					'One entry per line, partial match. Defaults include Googlebot, Bingbot, Applebot, DuckDuckBot, Facebook/Meta crawlers. These still count as bots in analytics.',
+					(string) $opts['good_user_agents'],
+					'textarea',
+					array( 'rows' => 5, 'class' => 'large-text code' )
+				);
+
+				self::field(
 					'bad_user_agents',
 					'Bad User-Agent list (one per line or partial match)',
-					'One entry per line. Partial match against the User-Agent header (case-insensitive).',
+					'One entry per line. Partial match against the User-Agent header (case-insensitive). Do not put Google/Bing/Facebook here; use the allowlist above.',
 					(string) $opts['bad_user_agents'],
 					'textarea',
 					array( 'rows' => 6, 'class' => 'large-text code' )
+				);
+
+				self::field(
+					'scraper_user_agents',
+					'Extra scraper User-Agent fragments',
+					'Additional partial matches for stealth scrapers (on top of built-in empty/bare/FF78/headless checks).',
+					(string) $opts['scraper_user_agents'],
+					'textarea',
+					array( 'rows' => 3, 'class' => 'large-text code' )
 				);
 				// Per-area rate limit numbers (after the new admin/general ones were added in code)
 				self::field(
@@ -1084,7 +1111,7 @@ class SquidSec_Shield_Admin {
 				self::field(
 					'rate_limit_general',
 					'General front-end rate limit (0 = off)',
-					'Optional broad rate limit on normal pages. Most sites leave this at 0.',
+					'Broad rate limit on normal pages (per IP per window). Default 90 slows full-site scrapers without hurting normal browsing. SEO allowlisted bots still hit this unless IP-allowlisted.',
 					(int) $opts['rate_limit_general'],
 					'number'
 				);

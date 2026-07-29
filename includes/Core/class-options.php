@@ -106,13 +106,20 @@ class SquidSec_Shield_Options {
 			'custom_rules_enabled'    => true,
 			// New hardening features (from server-level lessons).
 			'bad_user_agents_enabled' => true,
-			'bad_user_agents'         => "curl/\nwget/\nffuf\nwpscan\nlibredtail\npython-requests\npython-urllib\nGo-http-client\nhttpie\nheadlesschrome\nsqlmap\nnikto\nnmap\nmasscan\nzgrab\nsemrush\nahrefs\nbytespider\ngptbot\nclaudebot\npetalbot\ndotbot\nbingbot\nbaiduspider\nyandex\nmj12bot\nproximic\nfacebookexternalhit\nia_archiver\narchive.org_bot\nscanner\ndirbuster\ndirb\nwhatweb\nnessus\nopenvas\narachni\nw3af\nzaproxy\nburp\nnuclei\nhttpx\nhttprobe\ngobuster\ndirsearch\nferoxbuster\nkatana\nhakrawler",
+			// Hostile tools / scrapers only. Major SEO/social bots live in good_user_agents.
+			'bad_user_agents'         => SquidSec_Shield_Bot_UA::default_bad_user_agents(),
 			'probe_patterns_enabled'  => true,
 			'admin_ip_protection'     => true,
 			'admin_ip_allowlist'      => array(),
 			'block_mode'              => 'soft', // soft = friendly block page, hard = plain 403
 			'rate_limit_admin'        => 60,
-			'rate_limit_general'      => 0,
+			// Front-end rate limit (requests per window). 0 disables.
+			'rate_limit_general'      => 90,
+			// SEO / social crawlers never blocked as "bad UA" or scrapers.
+			'good_user_agents'        => SquidSec_Shield_Bot_UA::default_good_user_agents(),
+			// Stealth scraper UA quirks (browser spoof, empty UA, etc.).
+			'scraper_ua_enabled'      => true,
+			'scraper_user_agents'     => SquidSec_Shield_Bot_UA::default_scraper_user_agents(),
 		);
 	}
 

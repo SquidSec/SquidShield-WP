@@ -39,6 +39,8 @@ class WafHardeningTest extends SquidShield_TestCase {
 		$this->assertTrue( $meth->invoke( null, 'curl/7.68.0' ) );
 		$this->assertTrue( $meth->invoke( null, 'ffuf/1.5.0' ) );
 		$this->assertFalse( $meth->invoke( null, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' ) );
+		// SEO bots must not be treated as bad even via WAF helper.
+		$this->assertFalse( $meth->invoke( null, 'Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)' ) );
 	}
 
 	public function test_probe_patterns_detect_traversal_and_env() {

@@ -33,6 +33,7 @@ class SquidSec_Shield_Autoloader {
 		'SquidSec_Shield_Options'           => 'Core/class-options.php',
 		'SquidSec_Shield_Database'          => 'Core/class-database.php',
 		'SquidSec_Shield_IP'                => 'Core/class-ip.php',
+		'SquidSec_Shield_Bot_UA'            => 'Core/class-bot-ua.php',
 		'SquidSec_Shield_Helpers'           => 'Core/class-helpers.php',
 		'SquidSec_Shield_Cron'              => 'Core/class-cron.php',
 		'SquidSec_Shield_Setup'             => 'Core/class-setup.php',
