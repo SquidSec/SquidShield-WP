@@ -23,6 +23,7 @@ class OptionsTest extends SquidShield_TestCase {
 		$this->assertTrue( $d['remove_readme_license'] );
 		$this->assertTrue( $d['virtual_patch_enabled'] );
 		$this->assertTrue( $d['rate_limit_enabled'] );
+		$this->assertSame( array(), $d['trusted_proxies'] );
 	}
 
 	public function test_update_merges_partial_patch() {

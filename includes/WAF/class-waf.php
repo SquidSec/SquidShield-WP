@@ -83,8 +83,7 @@ class SquidSec_Shield_WAF {
 			return;
 		}
 
-		// Geo block (optional; uses CF header if present).
-		if ( SquidSec_Shield_Options::get( 'geo_block_enabled' ) ) {
+		if ( SquidSec_Shield_Options::get( 'geo_block_enabled' ) && SquidSec_Shield_IP::from_trusted_proxy() ) {
 			$blocked_countries = SquidSec_Shield_Options::get( 'geo_block_countries', array() );
 			$cc = isset( $_SERVER['HTTP_CF_IPCOUNTRY'] ) ? strtoupper( sanitize_text_field( wp_unslash( $_SERVER['HTTP_CF_IPCOUNTRY'] ) ) ) : '';
 			if ( $cc && is_array( $blocked_countries ) && in_array( $cc, $blocked_countries, true ) ) {
@@ -283,6 +282,10 @@ class SquidSec_Shield_WAF {
 			return;
 		}
 
+		while ( ob_get_level() > 0 ) {
+			ob_end_clean();
+		}
+
 		$mode   = SquidSec_Shield_Options::get( 'block_mode', 'soft' );
 		$status = 403;
 
@@ -290,9 +293,6 @@ class SquidSec_Shield_WAF {
 			status_header( $status );
 			nocache_headers();
 			header( 'X-SquidSec-Shield: blocked' );
-			if ( $rule_id ) {
-				header( 'X-SquidSec-Rule: ' . preg_replace( '/[^a-zA-Z0-9_\-.]/', '', $rule_id ) );
-			}
 		}
 
 		if ( 'hard' === $mode ) {
