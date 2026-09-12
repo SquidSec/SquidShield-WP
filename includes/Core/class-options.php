@@ -55,6 +55,7 @@ class SquidSec_Shield_Options {
 			'geo_block_countries'     => array(),
 			'ip_blocklist'            => array(),
 			'ip_allowlist'            => array(),
+			'trusted_proxies'         => array(),
 			// Auth.
 			'login_protection'        => true,
 			'login_max_attempts'      => 5,

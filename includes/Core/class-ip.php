@@ -26,33 +26,42 @@ class SquidSec_Shield_IP {
 	 *
 	 * @return string
 	 */
+	public static function remote_addr() {
+		$remote = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '';
+		return filter_var( $remote, FILTER_VALIDATE_IP ) ? $remote : '0.0.0.0';
+	}
+
+	public static function from_trusted_proxy() {
+		$trusted = SquidSec_Shield_Options::get( 'trusted_proxies', array() );
+		if ( ! is_array( $trusted ) || empty( $trusted ) ) {
+			return false;
+		}
+		return self::in_list( self::remote_addr(), $trusted );
+	}
+
 	public static function client() {
-		$candidates = array();
-		$headers    = array(
+		$remote = self::remote_addr();
+		if ( ! self::from_trusted_proxy() ) {
+			return $remote;
+		}
+		$headers = array(
 			'HTTP_CF_CONNECTING_IP',
-			'HTTP_X_FORWARDED_FOR',
 			'HTTP_X_REAL_IP',
-			'REMOTE_ADDR',
+			'HTTP_X_FORWARDED_FOR',
 		);
 		foreach ( $headers as $h ) {
 			if ( empty( $_SERVER[ $h ] ) ) {
 				continue;
 			}
 			$raw = sanitize_text_field( wp_unslash( $_SERVER[ $h ] ) );
-			// XFF may be a list.
 			foreach ( explode( ',', $raw ) as $part ) {
 				$part = trim( $part );
-				if ( $part !== '' ) {
-					$candidates[] = $part;
+				if ( filter_var( $part, FILTER_VALIDATE_IP ) ) {
+					return $part;
 				}
 			}
 		}
-		foreach ( $candidates as $ip ) {
-			if ( filter_var( $ip, FILTER_VALIDATE_IP ) ) {
-				return $ip;
-			}
-		}
-		return '0.0.0.0';
+		return $remote;
 	}
 
 	/**

@@ -255,8 +255,12 @@ class SquidSec_Shield_Two_Factor {
 		$enabled = (bool) get_user_meta( $user->ID, self::META_ENABLED, true );
 		$secret  = get_user_meta( $user->ID, self::META_SECRET, true );
 		if ( ! $secret ) {
-			$secret = self::generate_secret();
-			update_user_meta( $user->ID, self::META_SECRET, $secret );
+			$pending = get_transient( 'sss_totp_pending_' . $user->ID );
+			if ( ! is_string( $pending ) || $pending === '' ) {
+				$pending = self::generate_secret();
+				set_transient( 'sss_totp_pending_' . $user->ID, $pending, DAY_IN_SECONDS );
+			}
+			$secret = $pending;
 		}
 		$issuer = rawurlencode( wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES ) );
 		$label  = rawurlencode( $user->user_email );
@@ -311,12 +315,19 @@ class SquidSec_Shield_Two_Factor {
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing
 		$code = isset( $_POST['sss_totp_confirm'] ) ? sanitize_text_field( wp_unslash( $_POST['sss_totp_confirm'] ) ) : '';
 		$secret = get_user_meta( $user_id, self::META_SECRET, true );
+		if ( ! $secret ) {
+			$pending = get_transient( 'sss_totp_pending_' . $user_id );
+			if ( is_string( $pending ) && $pending !== '' ) {
+				$secret = $pending;
+			}
+		}
 
 		if ( $want ) {
 			if ( $code && $secret && hash_equals( self::totp( $secret ), preg_replace( '/\s+/', '', $code ) ) ) {
+				update_user_meta( $user_id, self::META_SECRET, $secret );
 				update_user_meta( $user_id, self::META_ENABLED, 1 );
+				delete_transient( 'sss_totp_pending_' . $user_id );
 			} elseif ( ! get_user_meta( $user_id, self::META_ENABLED, true ) ) {
-				// Don't enable without valid code.
 				add_settings_error( 'sss_2fa', 'sss_2fa', __( 'Invalid TOTP code — 2FA not enabled.', 'squidsec-shield' ), 'error' );
 			}
 		} else {
